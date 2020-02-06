@@ -1,0 +1,94 @@
+﻿## Sets window size of Powershell
+function Set-WindowSize {
+Param([int]$x=$host.ui.rawui.windowsize.width,
+      [int]$y=$host.ui.rawui.windowsize.heigth)
+
+    $size=New-Object System.Management.Automation.Host.Size($x,$y)
+    $host.ui.rawui.windowsize=$size   
+}
+
+function StartProgram
+{
+    Write-Host "`n/*************************************************\"
+    Write-Host "       Active Directory User Unlock Script"
+    Write-Host "    Created by Trevor Hensley :: Used for *Company*"
+    Write-Host "\*************************************************/`n"
+    GetUserInfo
+}
+
+## Reads information from user input -> Checks accounts is found within AD
+function GetUserInfo
+{
+    $GLOBAL:AccountName = Read-Host -Prompt 'Input the user account name or type exit'
+	Write-Host "Checking to see if username exists"
+	
+    ##Comparing username verse what is found in AD
+    $UserCheck = [bool] (Get-ADUser -Filter {samAccountName -like $AccountName})
+    Invoke-Expression "Write-Host Usercheck returns: $UserCheck"
+    IF ($UserCheck -eq $True){
+		Write-Host "Username does exist in AD"
+        LockOutStatus
+	}
+    ELSEIF ($AccountName -eq "Exit" -eq "exit"){
+        Write-Host "Exiting program"
+        Start-Sleep -s 3
+        Exit
+    }
+    ELSEIF ($UserCheck -eq $False -or $UserAccount -ne "Exit" -ne "exit"){
+        Write-Host "Username does not exist" -ForegroundColor RED
+        Write-Host "Please try another username"
+        Invoke-Expression "Write-Host Attempted with the username: $AccountName"
+        GetUserInfo
+    }
+}
+
+## Function checks status of Lockout on account
+function LockOutStatus
+{   
+    Write-Host "Checking Lockout status of account"
+    $GLOBAL:LockOutCheck = (Get-ADUser $AccountName -Properties LockedOut | Select-Object -ExpandProperty LockedOut)
+    Invoke-Expression "Write-Host Lockout check returns: $LockOutCheck"
+    IF ($LockOutCheck -eq $True){
+        Write-Host "User is locked out - Proceeding with request" -ForegroundColor RED
+        UnlockADAccount
+    }
+    ELSEIF ($LockOutCheck -eq $False){
+        Write-Host "User is not currently locked out" -ForegroundColor RED
+        Start-Sleep -s 3
+        ReAttemptLockout
+    }
+
+}
+
+## Function Unlocks AD Account 
+function UnlockADAccount
+{
+    Unlock-ADAccount -Identity $AccountName -Confirm
+    Write-Host "Unlocked account successfully" -ForegroundColor RED
+    Write-Host "Exiting program"
+    Start-Sleep -s 3
+    ReAttemptLockout
+}
+
+function ReAttemptLockout
+{
+    $GLOBAL:ReattemptCheck = Read-Host -Prompt "Is there another account to be unlocked (Yes/Exit)? "
+    IF ($ReattemptCheck -eq "Yes" -eq "yes"){
+		Write-Host "Reloading account lockout program"
+        GetUserInfo
+	}
+    ELSEIF ($ReattemptCheck -eq "Exit" -eq "exit"){
+        Write-Host "Exiting program" -ForegroundColor RED
+        Start-Sleep -s 3
+        Exit
+    }
+    ELSE
+    {
+        Write-Host "Please enter correct entry"
+        ReAttemptLockout
+    }
+}
+
+Set-WindowSize 70 25
+StartProgram
+
